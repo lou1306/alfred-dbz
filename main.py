@@ -208,7 +208,6 @@ def cli(qry_string, skip_zotero, key):
         venue = f'{hit.get("venue", "<No venue>")}, {hit["year"]}'
         return f'\t{", ".join(authors)}\n\t{hit["title"]}\n\t({venue})'
 
-    zot = zotero.Zotero(ID, "user", KEY)
     if not key:
         if not qry_string:
             qry_string = click.prompt("DBLP query")
@@ -230,75 +229,12 @@ def cli(qry_string, skip_zotero, key):
             print("No matches found.")
             exit(0)
 
-    # info, dblp_type = get(key)
-
-    # author = info.get("author", [])
-    # if isinstance(author, str):
-    #     author = [author]
-
-    # creators = [make_creator(extract_text(i)) for i in author]
-
-    # zot_type = convert_type(dblp_type)
-    # template = zot.item_template(zot_type)
-
-    # mapping = {
-    #     "date": "year",
-    #     "DOI": "ee",
-    #     "extra": "@key",
-    #     "issue": "number",
-    #     "pages": "pages",
-    #     "publicationTitle": "journal",
-    #     "title": "title",
-    #     "university": "school",
-    #     "url": "ee",
-    #     "volume": "volume"
-    # }
-
-    # post_process = {
-    #     "DOI": lambda x: x[16:] if "https://doi.org/" in x else "",
-    #     "extra": lambda x: f"Citation Key: DBLP:{x}",
-    #     "title": lambda x: x[:-1] if x[-1] == "." else x,
-    # }
-
-    # for k1, k2 in mapping.items():
-    #     if k1 in template:
-    #         join = k1 not in ("DOI", "url")
-    #         template[k1] = extract_text(info.get(k2, template[k1]), join)
-    # for k, f in post_process.items():
-    #     if k in template:
-    #         template[k] = f(template[k])
-
-    # if "crossref" in info.keys():
-    #     crf, _ = get(info["crossref"])
-    #     editors = crf.get("editor", [])
-    #     if not isinstance(editors, list):
-    #         editors = [editors]
-    #     creators.extend(make_creator(
-    #         extract_text(i), "editor") for i in editors)
-
-    #     crf_mapping = {
-    #         "bookTitle": "title",
-    #         "proceedingsTitle": "title",
-    #         "publisher": "publisher",
-    #         "series": "series",
-    #         "volume": "volume"
-    #     }
-    #     for k1, k2 in crf_mapping.items():
-    #         if k1 in template:
-    #             template[k1] = extract_text(crf.get(k2, template[k1]))
-
-    # template["creators"] = creators
     template = add_to_zotero_fn(key, True)
     print("----------", file=stderr)
     print(
         "\n".join(f"{k}:\t\t {v}" for k, v in template.items() if v),
         file=stderr)
     print("----------", file=stderr)
-
-    # if not skip_zotero:
-    #     print(f"Adding {key} to Zotero...", file=stderr)
-    #     result = zot.create_items([template])
-    #     print(f"Done: {result}", file=stderr)
 
 
 if __name__ == '__main__':
