@@ -3,14 +3,18 @@
 from json import JSONDecoder
 from sys import stderr, exit
 from os import environ
+from pathlib import Path
+
 
 from pyzotero import zotero
 import requests
 import xmltodict
 import click
+from scihub import SciHub
 
 
 J = JSONDecoder()
+DOWNLOAD_DIR = Path("~/Downloads").expanduser().resolve()
 
 
 def extract_text(node, join=True):
@@ -123,11 +127,13 @@ def alfred_lookup(qry_string):
 @group.command()
 @click.argument("key", required=True)
 @click.option("--silent", default=False)
-def add_to_zotero(key, silent):
-    add_to_zotero_fn(key, silent)
+@click.option("--skip-scihub", default=False, is_flag=True)
+@click.option("--skip-zotero", default=False, is_flag=True)
+def add_to_zotero(key, silent, skip_scihub, skip_zotero):
+    add_to_zotero_fn(key, silent, skip_scihub, skip_zotero)
 
 
-def add_to_zotero_fn(key, silent):
+def add_to_zotero_fn(key, silent, skip_scihub, skip_zotero):
     ID, KEY = environ["ZOTEROID"], environ["ZOTEROKEY"]
     zot = zotero.Zotero(ID, "user", KEY)
     info, dblp_type = get(key)
@@ -188,10 +194,26 @@ def add_to_zotero_fn(key, silent):
 
     template["creators"] = creators
 
+    fname = DOWNLOAD_DIR / f"""{key.replace("/", "-")}.pdf"""
+    if not skip_scihub and not fname.exists():
+        try:
+            print("Sci-hub lookup...", file=stderr)
+            sh = SciHub()
+            sh_uri = template.get("DOI", "") or template["url"]
+            result = sh.fetch(sh_uri)
+            if result:
+                with open(str(fname), 'wb') as fd:
+                    fd.write(result["pdf"])
+                print(f"Saved to {fname}.")
+        except Exception as e:
+            print(f"SciHub lookup failed: {e}", file=stderr)
+    else:
+        print(f"{fname} exists, skipping...", file=stderr)
 
-    zot.create_items([template])
-    if not silent:
-        print(f"Added {key} to Zotero.")
+    if not skip_zotero:
+        zot.create_items([template])
+        if not silent:
+            print(f"Added {key} to Zotero.")
     return template
 
 
@@ -199,7 +221,8 @@ def add_to_zotero_fn(key, silent):
 @click.argument("qry_string", required=False)
 @click.option("--key", default=None)
 @click.option("--skip-zotero", default=False, is_flag=True)
-def cli(qry_string, skip_zotero, key):
+@click.option("--skip-scihub", default=False, is_flag=True)
+def cli(qry_string, key, **kwargs):
     def fmt(hit):
         if not isinstance(hit["authors"]["author"], list):
             authors = [hit["authors"]["author"]["text"]]
@@ -229,7 +252,7 @@ def cli(qry_string, skip_zotero, key):
             print("No matches found.")
             exit(0)
 
-    template = add_to_zotero_fn(key, True)
+    template = add_to_zotero_fn(key, silent=True, **kwargs)
     print("----------", file=stderr)
     print(
         "\n".join(f"{k}:\t\t {v}" for k, v in template.items() if v),
