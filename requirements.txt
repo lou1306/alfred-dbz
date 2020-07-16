@@ -2,13 +2,13 @@
 # https://github.com/damnever/pigar
 
 # main.py: 10
-Click == 7.0
+Click ~= 7.0
 
 # main.py: 7
-Pyzotero == 1.4.4
+Pyzotero ~= 1.4.4
 
 # main.py: 8
-requests == 2.22.0
+requests ~= 2.22.0
 
 # main.py: 9
-xmltodict == 0.12.0
+xmltodict ~= 0.12.0
