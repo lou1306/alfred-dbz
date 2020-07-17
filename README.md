@@ -29,7 +29,7 @@ This workflow requires Python 3.7 or higher, with the following libraries: `clic
 5. Go back to Workflow screen, click on "Configure workflow and variables" (the *[x]* in the top-right corner)
 6. Insert the following values in the "Workflow Environment Variables" pane:
   * `python3path`: path to your Python3 interpreter. You should be able to find it by typing `which python3` in a terminal window
-  * ZOTEROID, ZOTEROKEY: ID and API key of your Zotero account.
+  * `ZOTEROID`, `ZOTEROKEY`: ID and API key of your Zotero account.
 
 ## Acknowledgements
 
