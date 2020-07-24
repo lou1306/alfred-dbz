@@ -139,8 +139,8 @@ def add_to_zotero_fn(key, silent, skip_scihub, skip_zotero):
     info, dblp_type = get(key)
 
     author = info.get("author", [])
-    if isinstance(author, str):
-        author = [author]
+    if isinstance(author, str) or isinstance(author, dict):
+        author = [extract_text(author)]
 
     creators = [make_creator(extract_text(i)) for i in author]
     zot_type = convert_type(dblp_type)
