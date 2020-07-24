@@ -4,7 +4,7 @@ from json import JSONDecoder
 from sys import stderr, exit
 from os import environ
 
-from pyzotero import zotero
+from pyzotero import zotero, zotero_errors
 import requests
 import xmltodict
 import click
@@ -128,8 +128,15 @@ def add_to_zotero(key, silent):
 
 
 def add_to_zotero_fn(key, silent):
-    ID, KEY = environ["ZOTEROID"], environ["ZOTEROKEY"]
-    zot = zotero.Zotero(ID, "user", KEY)
+    ID, KEY = environ.get("ZOTEROID", ""), environ.get("ZOTEROKEY", "")
+    try:
+        zot = zotero.Zotero(ID, "user", KEY)
+    except zotero_errors.MissingCredentials:
+        print(
+            "There was an error with Zotero API authentication. "
+            "Please check your Zotero ID and API key."
+            )
+        exit(1)
     info, dblp_type = get(key)
 
     author = info.get("author", [])
