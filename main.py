@@ -176,6 +176,11 @@ def add_to_zotero_fn(key, silent):
         if k in template:
             template[k] = f(template[k])
 
+    editors = info.get("editor", [])
+    if isinstance(editors, str) or isinstance(editors, dict):
+        editors = [extract_text(editors)]
+    creators.extend(make_creator(extract_text(i), "editor") for i in editors)
+    
     if "crossref" in info.keys():
         crf, _ = get(info["crossref"])
         editors = crf.get("editor", [])
