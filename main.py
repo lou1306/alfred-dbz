@@ -40,7 +40,7 @@ def query_dblp(qry_string):
     print(f"Querying DBLP for {qry_string}...", file=stderr)
     response = requests.get(
         "http://dblp.org/search/publ/api",
-        {"format": "json", "q": qry_string, "c": 0})
+        {"format": "json", "q": qry_string, "c": 10})
     if response.status_code != 200:
         raise Exception("DBLP request failed: {}".format(response.status_code))
     hits = J.decode(response.text)["result"]["hits"]
