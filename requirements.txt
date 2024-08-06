@@ -8,7 +8,7 @@ Click ~= 7.0
 Pyzotero ~= 1.4.4
 
 # main.py: 8
-requests ~= 2.22.0
+requests ~= 2.31.0
 
 # main.py: 9
 xmltodict ~= 0.12.0
