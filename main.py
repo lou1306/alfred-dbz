@@ -47,7 +47,8 @@ def query_dblp(qry_string):
     total = int(hits["@total"])
     first = int(hits["@first"]) + 1
     last = first + int(hits["@sent"]) - 1
-    return [x["info"] for x in hits.get("hit", [])], total, first, last
+    url = response.url
+    return [x["info"] for x in hits.get("hit", [])], total, first, last, url
 
 
 def make_creator(name, creator_type='author'):
@@ -115,9 +116,15 @@ def alfred_lookup(qry_string):
             "path": "dblp-logo.png"
         }}
         }}"""
-    infos, _, _, _ = query_dblp(qry_string)
-    hits = (fmt(hit) for hit in infos)
-    print(f"""{{ "items": [{','.join(hits)}] }}""")
+    try:
+        infos, *_ = query_dblp(qry_string)
+        hits = (fmt(hit) for hit in infos)
+        print(f"""{{ "items": [{','.join(hits)}] }}""")
+    except Exception as exc:
+        print(f"""{{ "items": [{{
+              "title": "Lookup failed for {qry_string}",
+              "subtitle": "{exc}"}}
+        ]}}""")
 
 
 @group.command()
@@ -180,7 +187,7 @@ def add_to_zotero_fn(key, silent):
     if isinstance(editors, str) or isinstance(editors, dict):
         editors = [extract_text(editors)]
     creators.extend(make_creator(extract_text(i), "editor") for i in editors)
-    
+
     if "crossref" in info.keys():
         crf, _ = get(info["crossref"])
         editors = crf.get("editor", [])
@@ -201,7 +208,6 @@ def add_to_zotero_fn(key, silent):
                 template[k1] = extract_text(crf.get(k2, template[k1]))
 
     template["creators"] = creators
-
 
     zot.create_items([template])
     if not silent:
@@ -225,7 +231,7 @@ def cli(qry_string, skip_zotero, key):
     if not key:
         if not qry_string:
             qry_string = click.prompt("DBLP query")
-        infos, total, first, last = query_dblp(qry_string)
+        infos, total, first, last, _ = query_dblp(qry_string)
         if infos:
             print(
                 "## DBLP search result ##",
