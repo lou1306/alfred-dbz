@@ -1,6 +1,6 @@
 # DBLP to Zotero
 
-An Alfred 4 workflow for lazy computer scientists.
+An Alfred workflow for lazy computer scientists.
 
 ## Usage
 
