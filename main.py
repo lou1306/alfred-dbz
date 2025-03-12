@@ -96,7 +96,19 @@ def group():
 @group.command()
 @click.argument("qry_string", required=True)
 def alfred_lookup(qry_string):
+    def sanitize(x):
+        if isinstance(x, str):
+            return x.replace("\\", "\\\\")
+        elif isinstance(x, list):
+            return [sanitize(v) for v in x]
+        elif isinstance(x, dict):
+            return {k: sanitize(x[k]) for k in x}
+        else:
+            return x
+
     def fmt(hit):
+        # Sanitize backslashes
+        hit = sanitize(hit)
         if not isinstance(hit["authors"]["author"], list):
             authors = [hit["authors"]["author"]["text"]]
         else:
@@ -121,9 +133,11 @@ def alfred_lookup(qry_string):
         hits = (fmt(hit) for hit in infos)
         print(f"""{{ "items": [{','.join(hits)}] }}""")
     except Exception as exc:
+        msg = f"{exc}".replace("\"", "'")
         print(f"""{{ "items": [{{
+              "uid": 0,
               "title": "Lookup failed for {qry_string}",
-              "subtitle": "{exc}"}}
+              "subtitle": "{msg}"}}
         ]}}""")
 
 
