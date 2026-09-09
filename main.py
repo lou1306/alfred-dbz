@@ -9,6 +9,13 @@ import requests
 import xmltodict
 import click
 
+DBLP_URLS = [
+    "https://dblp.org",
+    "https://dblp.dagstuhl.de",
+    "https://dblp.uni-trier.de"
+]
+
+DBLP = "https://dblp.org"
 
 J = JSONDecoder()
 
@@ -27,9 +34,16 @@ def extract_text(node, join=True):
 
 def get(key):
     print(f"Getting {key} from DBLP...", file=stderr)
-    response = requests.get(f"https://dblp.org/rec/xml/{key}.xml")
+    headers = requests.utils.default_headers()
+    headers["User-Agent"] = "DBLP-To-Zotero/1.0"
+    # Attempt to get the record from any of the known DBLP mirrors
+    for dblp_url in DBLP_URLS:
+        response = requests.get(f"{dblp_url}/rec/{key}.xml", headers=headers)
+        if response.status_code == 200:
+            break
+    # response = requests.get(f"{DBLP}/rec/{key}.xml", headers=headers)
     if response.status_code != 200:
-        raise KeyError("Key not found in DBLP.")
+        raise KeyError(f"{key} not found (HTTP {response.status_code}, headers={headers}).")
     record = xmltodict.parse(response.text)
     dblp_type = list(record["dblp"].keys())[0]
     info = record["dblp"][dblp_type]
@@ -38,17 +52,22 @@ def get(key):
 
 def query_dblp(qry_string):
     print(f"Querying DBLP for {qry_string}...", file=stderr)
-    response = requests.get(
-        "http://dblp.org/search/publ/api",
-        {"format": "json", "q": qry_string, "c": 10})
+    # Try to query any of the known DBLP mirrors
+    for dblp_url in DBLP_URLS:
+        response = requests.get(
+            f"{dblp_url}/search/publ/api",
+            {"format": "json", "q": qry_string, "c": 10})
+        if response.status_code == 200:
+            break
     if response.status_code != 200:
         raise Exception("DBLP request failed: {}".format(response.status_code))
+    print(f"DBLP response: {response.text}", file=stderr)
     hits = J.decode(response.text)["result"]["hits"]
     total = int(hits["@total"])
     first = int(hits["@first"]) + 1
     last = first + int(hits["@sent"]) - 1
     url = response.url
-    return [x["info"] for x in hits.get("hit", [])], total, first, last, url
+    return [x["info"] for x in hits.get("hit", [])], total, first, last, url, dblp_url
 
 
 def make_creator(name, creator_type='author'):
@@ -106,7 +125,7 @@ def alfred_lookup(qry_string):
         else:
             return x
 
-    def fmt(hit):
+    def fmt(hit, dblp_url=DBLP):
         # Sanitize backslashes
         hit = sanitize(hit)
         if not isinstance(hit["authors"]["author"], list):
@@ -123,21 +142,21 @@ def alfred_lookup(qry_string):
         "title": "{hit["title"]}",
         "subtitle": "{", ".join(authors)} ({venue})",
         "arg": "{hit["key"]}",
-        "quicklookurl": "https://dblp.uni-trier.de/rec/bibtex/{hit["key"]}",
+        "quicklookurl": "{dblp_url}/rec/bibtex/{hit["key"]}",
         "icon": {{
             "path": "dblp-logo.png"
         }}
         }}"""
     try:
-        infos, *_ = query_dblp(qry_string)
-        hits = (fmt(hit) for hit in infos)
+        infos, *_, dblp_url = query_dblp(qry_string)
+        hits = (fmt(hit, dblp_url) for hit in infos)
         print(f"""{{ "items": [{','.join(hits)}] }}""")
     except Exception as exc:
         msg = f"{exc}".replace("\"", "'")
         print(f"""{{ "items": [{{
               "uid": 0,
               "title": "Lookup failed for {qry_string}",
-              "subtitle": "{msg}"}}
+              "subtitle": "{type(exc).__name__}: {msg}"}}
         ]}}""")
 
 
@@ -158,8 +177,11 @@ def add_to_zotero_fn(key, silent):
             "Please check your Zotero ID and API key."
             )
         exit(1)
-    info, dblp_type = get(key)
-
+    try:
+        info, dblp_type = get(key)
+    except KeyError as e:
+        print(f"KeyError: {e}")
+        exit(1)
     author = info.get("author", [])
     if isinstance(author, str) or isinstance(author, dict):
         author = [extract_text(author)]
@@ -245,7 +267,7 @@ def cli(qry_string, skip_zotero, key):
     if not key:
         if not qry_string:
             qry_string = click.prompt("DBLP query")
-        infos, total, first, last, _ = query_dblp(qry_string)
+        infos, total, first, last, *_ = query_dblp(qry_string)
         if infos:
             print(
                 "## DBLP search result ##",
