@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 import json
+import os
+import tempfile
+import time
 from sys import stderr, exit
 from os import environ
 
@@ -17,6 +20,22 @@ DBLP_URLS = [
 ]
 
 DBLP = "https://dblp.org"
+
+_DEBOUNCE_FILE = os.path.join(tempfile.gettempdir(), "dblp_alfred_query")
+_DEBOUNCE_DELAY = 0.4  # seconds
+
+
+def _debounce(query: str) -> bool:
+    """Write query to a shared file, wait, then check it's still current.
+    Returns True if this invocation should proceed, False if a newer one arrived."""
+    with open(_DEBOUNCE_FILE, "w") as f:
+        f.write(query)
+    time.sleep(_DEBOUNCE_DELAY)
+    try:
+        with open(_DEBOUNCE_FILE) as f:
+            return f.read() == query
+    except OSError:
+        return True
 
 
 def extract_text(node, join=True):
@@ -113,6 +132,10 @@ def alfred_lookup(qry_string):
             "quicklookurl": f"{dblp_url}/rec/bibtex/{hit['key']}",
             "icon": {"path": "dblp-logo.png"},
         }
+
+    if not _debounce(qry_string):
+        print(json.dumps({"items": []}))
+        return
 
     try:
         infos, *_, dblp_url = query_dblp(qry_string)
