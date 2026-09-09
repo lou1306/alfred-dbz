@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from json import JSONDecoder
+import json
 from sys import stderr, exit
 from os import environ
 
@@ -17,8 +17,6 @@ DBLP_URLS = [
 ]
 
 DBLP = "https://dblp.org"
-
-J = JSONDecoder()
 
 
 def extract_text(node, join=True):
@@ -37,9 +35,9 @@ def get(key):
     print(f"Getting {key} from DBLP...", file=stderr)
     for dblp_url in DBLP_URLS:
         response = anubis.get(f"{dblp_url}/rec/{key}.xml")
-        if response.status_code == 200:
+        if response.status_code == 200 and "text/html" not in response.headers.get("Content-Type", ""):
             break
-    if response.status_code != 200:
+    if response.status_code != 200 or "text/html" in response.headers.get("Content-Type", ""):
         raise KeyError(f"{key} not found (HTTP {response.status_code}).")
     record = xmltodict.parse(response.text)
     dblp_type = list(record["dblp"].keys())[0]
@@ -53,12 +51,11 @@ def query_dblp(qry_string):
         response = anubis.get(
             f"{dblp_url}/search/publ/api",
             {"format": "json", "q": qry_string, "c": 10})
-        if response.status_code == 200:
+        if response.status_code == 200 and "text/html" not in response.headers.get("Content-Type", ""):
             break
-    if response.status_code != 200:
+    if response.status_code != 200 or "text/html" in response.headers.get("Content-Type", ""):
         raise Exception("DBLP request failed: {}".format(response.status_code))
-    print(f"DBLP response: {response.text}", file=stderr)
-    hits = J.decode(response.text)["result"]["hits"]
+    hits = json.loads(response.text)["result"]["hits"]
     total = int(hits["@total"])
     first = int(hits["@first"]) + 1
     last = first + int(hits["@sent"]) - 1
@@ -81,18 +78,6 @@ def make_creator(name, creator_type='author'):
     }
 
 
-"""
-zotero types:
-'artwork', 'audioRecording', 'bill', 'blogPost', 'book', 'bookSection', 'case',
-'computerProgram', 'conferencePaper', 'dictionaryEntry', 'document', 'email',
-'encyclopediaArticle', 'film', 'forumPost', 'hearing', 'instantMessage',
-'interview', 'journalArticle', 'letter', 'magazineArticle', 'manuscript',
-'map', 'newspaperArticle', 'note', 'patent', 'podcast', 'presentation',
-'radioBroadcast', 'report', 'statute', 'tvBroadcast', 'thesis',
-'videoRecording', 'webpage'
-"""
-
-
 def convert_type(dblp_type):
     return {
         "book": "book",
@@ -111,49 +96,33 @@ def group():
 @group.command()
 @click.argument("qry_string", required=True)
 def alfred_lookup(qry_string):
-    def sanitize(x):
-        if isinstance(x, str):
-            return x.replace("\\", "\\\\")
-        elif isinstance(x, list):
-            return [sanitize(v) for v in x]
-        elif isinstance(x, dict):
-            return {k: sanitize(x[k]) for k in x}
-        else:
-            return x
-
     def fmt(hit, dblp_url=DBLP):
-        # Sanitize backslashes
-        hit = sanitize(hit)
-        if not isinstance(hit["authors"]["author"], list):
-            authors = [hit["authors"]["author"]["text"]]
-        else:
-            authors = [i["text"] for i in hit["authors"]["author"]]
+        author_node = hit.get("authors", {}).get("author", [])
+        if not isinstance(author_node, list):
+            author_node = [author_node]
+        authors = [a.get("text", a) if isinstance(a, dict) else a for a in author_node]
         if len(authors) > 3:
-            authors = authors[:3]
-            authors.append("et al.")
+            authors = authors[:3] + ["et al."]
 
         venue = f'{hit.get("venue", "<No venue>")}, {hit["year"]}'
-        return f"""{{
-        "uid": "{hit["key"]}",
-        "title": "{hit["title"]}",
-        "subtitle": "{", ".join(authors)} ({venue})",
-        "arg": "{hit["key"]}",
-        "quicklookurl": "{dblp_url}/rec/bibtex/{hit["key"]}",
-        "icon": {{
-            "path": "dblp-logo.png"
-        }}
-        }}"""
+        return {
+            "uid": hit["key"],
+            "title": hit["title"],
+            "subtitle": f"{', '.join(authors)} ({venue})",
+            "arg": hit["key"],
+            "quicklookurl": f"{dblp_url}/rec/bibtex/{hit['key']}",
+            "icon": {"path": "dblp-logo.png"},
+        }
+
     try:
         infos, *_, dblp_url = query_dblp(qry_string)
-        hits = (fmt(hit, dblp_url) for hit in infos)
-        print(f"""{{ "items": [{','.join(hits)}] }}""")
+        print(json.dumps({"items": [fmt(hit, dblp_url) for hit in infos]}))
     except Exception as exc:
-        msg = f"{exc}".replace("\"", "'")
-        print(f"""{{ "items": [{{
-              "uid": 0,
-              "title": "Lookup failed for {qry_string}",
-              "subtitle": "{type(exc).__name__}: {msg}"}}
-        ]}}""")
+        print(json.dumps({"items": [{
+            "uid": "0",
+            "title": f"Lookup failed for {qry_string}",
+            "subtitle": f"{type(exc).__name__}: {exc}",
+        }]}))
 
 
 @group.command()
@@ -204,7 +173,7 @@ def add_to_zotero_fn(key, silent):
     post_process = {
         "DOI": lambda x: x[16:] if "https://doi.org/" in x else "",
         "extra": lambda x: f"Citation Key: DBLP:{x}",
-        "title": lambda x: x[:-1] if x[-1] == "." else x,
+        "title": lambda x: x.rstrip("."),
     }
 
     for k1, k2 in mapping.items():

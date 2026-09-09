@@ -30,7 +30,7 @@ def session() -> requests.Session:
 def _is_challenge(resp: requests.Response) -> bool:
     return (
         "text/html" in resp.headers.get("Content-Type", "")
-        and "anubis" in resp.text.lower()
+        and "anubis_challenge" in resp.text
     )
 
 
@@ -100,6 +100,9 @@ def _solve_metarefresh(
     return not _is_challenge(r)
 
 
+_POW_MAX_HASHES = 1 << 22  # ~4M iterations; gives up if difficulty is impossibly high
+
+
 def _solve_pow(sess, pass_url, random_data, challenge_id, redir, difficulty) -> bool:
     if not random_data or not challenge_id:
         return False
@@ -107,20 +110,25 @@ def _solve_pow(sess, pass_url, random_data, challenge_id, redir, difficulty) -> 
     n_bytes = difficulty // 2
     odd = difficulty % 2 != 0
     print(
-        f"Anubis: PoW challenge (difficulty={difficulty}, ~{16**difficulty:,} hashes)…",
+        f"Anubis: PoW challenge (difficulty={difficulty}, ~{16**difficulty:,} hashes expected)…",
         file=stderr,
     )
 
     t0 = time.time()
-    nonce = 0
-    while True:
+    h = b""
+    for nonce in range(_POW_MAX_HASHES):
         h = hashlib.sha256(f"{random_data}{nonce}".encode()).digest()
         ok = all(b == 0 for b in h[:n_bytes])
         if ok and odd and h[n_bytes] >> 4:
             ok = False
         if ok:
             break
-        nonce += 1
+    else:
+        print(
+            f"Anubis: PoW difficulty={difficulty} exceeded {_POW_MAX_HASHES:,} hash budget, giving up.",
+            file=stderr,
+        )
+        return False
 
     elapsed = int((time.time() - t0) * 1000)
     print(f"Anubis: solved nonce={nonce} in {elapsed}ms", file=stderr)
