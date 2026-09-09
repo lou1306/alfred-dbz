@@ -5,9 +5,10 @@ from sys import stderr, exit
 from os import environ
 
 from pyzotero import zotero, zotero_errors
-import requests
 import xmltodict
 import click
+
+import anubis
 
 DBLP_URLS = [
     "https://dblp.org",
@@ -34,16 +35,12 @@ def extract_text(node, join=True):
 
 def get(key):
     print(f"Getting {key} from DBLP...", file=stderr)
-    headers = requests.utils.default_headers()
-    headers["User-Agent"] = "DBLP-To-Zotero/1.0"
-    # Attempt to get the record from any of the known DBLP mirrors
     for dblp_url in DBLP_URLS:
-        response = requests.get(f"{dblp_url}/rec/{key}.xml", headers=headers)
+        response = anubis.get(f"{dblp_url}/rec/{key}.xml")
         if response.status_code == 200:
             break
-    # response = requests.get(f"{DBLP}/rec/{key}.xml", headers=headers)
     if response.status_code != 200:
-        raise KeyError(f"{key} not found (HTTP {response.status_code}, headers={headers}).")
+        raise KeyError(f"{key} not found (HTTP {response.status_code}).")
     record = xmltodict.parse(response.text)
     dblp_type = list(record["dblp"].keys())[0]
     info = record["dblp"][dblp_type]
@@ -52,9 +49,8 @@ def get(key):
 
 def query_dblp(qry_string):
     print(f"Querying DBLP for {qry_string}...", file=stderr)
-    # Try to query any of the known DBLP mirrors
     for dblp_url in DBLP_URLS:
-        response = requests.get(
+        response = anubis.get(
             f"{dblp_url}/search/publ/api",
             {"format": "json", "q": qry_string, "c": 10})
         if response.status_code == 200:
