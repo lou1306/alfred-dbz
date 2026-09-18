@@ -8,6 +8,7 @@ from sys import stderr, exit
 from os import environ
 
 from pyzotero import zotero, zotero_errors
+import requests
 import xmltodict
 import click
 
@@ -38,6 +39,27 @@ def _debounce(query: str) -> bool:
         return True
 
 
+def fetch(path, params=None):
+    """Request `path` from each DBLP mirror in turn.
+
+    Returns (response, dblp_url) for the first mirror that answers with a
+    usable (non-HTML, 200) response. If none does, dblp_url is None and
+    response is the last one received, or None if every mirror raised.
+    """
+    response = None
+    for dblp_url in DBLP_URLS:
+        try:
+            candidate = anubis.get(f"{dblp_url}{path}", params)
+        except requests.RequestException as exc:
+            print(f"{dblp_url} unreachable: {exc}", file=stderr)
+            continue
+        response = candidate
+        if (response.status_code == 200
+                and "text/html" not in response.headers.get("Content-Type", "")):
+            return response, dblp_url
+    return response, None
+
+
 def extract_text(node, join=True):
     if isinstance(node, str):
         return node
@@ -52,12 +74,10 @@ def extract_text(node, join=True):
 
 def get(key):
     print(f"Getting {key} from DBLP...", file=stderr)
-    for dblp_url in DBLP_URLS:
-        response = anubis.get(f"{dblp_url}/rec/{key}.xml")
-        if response.status_code == 200 and "text/html" not in response.headers.get("Content-Type", ""):
-            break
-    if response.status_code != 200 or "text/html" in response.headers.get("Content-Type", ""):
-        raise KeyError(f"{key} not found (HTTP {response.status_code}).")
+    response, dblp_url = fetch(f"/rec/{key}.xml")
+    if dblp_url is None:
+        status = response.status_code if response is not None else "no mirror reachable"
+        raise KeyError(f"{key} not found ({status}).")
     record = xmltodict.parse(response.text)
     dblp_type = list(record["dblp"].keys())[0]
     info = record["dblp"][dblp_type]
@@ -66,14 +86,11 @@ def get(key):
 
 def query_dblp(qry_string):
     print(f"Querying DBLP for {qry_string}...", file=stderr)
-    for dblp_url in DBLP_URLS:
-        response = anubis.get(
-            f"{dblp_url}/search/publ/api",
-            {"format": "json", "q": qry_string, "c": 10})
-        if response.status_code == 200 and "text/html" not in response.headers.get("Content-Type", ""):
-            break
-    if response.status_code != 200 or "text/html" in response.headers.get("Content-Type", ""):
-        raise Exception("DBLP request failed: {}".format(response.status_code))
+    response, dblp_url = fetch(
+        "/search/publ/api", {"format": "json", "q": qry_string, "c": 10})
+    if dblp_url is None:
+        status = response.status_code if response is not None else "no mirror reachable"
+        raise Exception("DBLP request failed: {}".format(status))
     hits = json.loads(response.text)["result"]["hits"]
     total = int(hits["@total"])
     first = int(hits["@first"]) + 1
@@ -152,7 +169,13 @@ def alfred_lookup(qry_string):
 @click.argument("key", required=True)
 @click.option("--silent", default=False)
 def add_to_zotero(key, silent):
-    add_to_zotero_fn(key, silent)
+    try:
+        add_to_zotero_fn(key, silent)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        print(f"Failed to add {key} to Zotero: {type(exc).__name__}: {exc}")
+        exit(1)
 
 
 def add_to_zotero_fn(key, silent):
@@ -167,8 +190,8 @@ def add_to_zotero_fn(key, silent):
         exit(1)
     try:
         info, dblp_type = get(key)
-    except KeyError as e:
-        print(f"KeyError: {e}")
+    except Exception as e:
+        print(f"Could not fetch {key} from DBLP: {type(e).__name__}: {e}")
         exit(1)
     author = info.get("author", [])
     if isinstance(author, str) or isinstance(author, dict):
@@ -233,9 +256,21 @@ def add_to_zotero_fn(key, silent):
 
     template["creators"] = creators
 
-    zot.create_items([template])
+    # The API answers 200 even when it rejects an item: the rejection lands in
+    # resp["failed"] and pyzotero does not raise. Reporting success off the bare
+    # call would claim "Added ..." for an item that never reached the library.
+    resp = zot.create_items([template]) or {}
+    failed = resp.get("failed") or {}
+    if failed:
+        reasons = "; ".join(
+            f"{d.get('code', '?')} {d.get('message', d)}" if isinstance(d, dict) else str(d)
+            for d in failed.values())
+        raise Exception(f"Zotero rejected {key}: {reasons}")
     if not silent:
-        print(f"Added {key} to Zotero.")
+        unchanged = resp.get("unchanged") or {}
+        print(
+            f"{key} already in Zotero (unchanged)." if unchanged
+            else f"Added {key} to Zotero.")
     return template
 
 
