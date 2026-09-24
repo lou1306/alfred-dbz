@@ -9,7 +9,6 @@ from os import environ
 
 from pyzotero import zotero, zotero_errors
 import requests
-import xmltodict
 import click
 
 import anubis
@@ -86,10 +85,7 @@ def get(key):
     if dblp_url is None:
         status = response.status_code if response is not None else "no mirror reachable"
         raise KeyError(f"{key} not found ({status}).")
-    record = xmltodict.parse(response.text)
-    dblp_type = list(record["dblp"].keys())[0]
-    info = record["dblp"][dblp_type]
-    return info, dblp_type
+    return localdb.parse_record(response.text)
 
 
 def query_dblp(qry_string):

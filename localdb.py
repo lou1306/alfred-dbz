@@ -168,6 +168,29 @@ def _record(el) -> dict:
     }
 
 
+# Decoded text no longer is in the encoding it declares (US-ASCII for
+# /rec/{key}.xml), and lxml refuses str input that declares one at all.
+_STR_PARSER = etree.XMLParser(encoding="utf-8")
+
+
+def parse_record(xml: str):
+    """(info, dblp_type) for the record in `xml`, either a /rec/{key}.xml
+    document or a bare record as stored in pubs.raw, in xmltodict's shape.
+
+    xmltodict keeps only the text outside child elements, so on its own it
+    would turn "der <i>Principia</i> und" into "der  und". Per the DTD only
+    <title> holds such markup (<i>, <sub>, <sup>, <tt>, <ref>, nested), but
+    any field with children is flattened with _text() first."""
+    root = etree.fromstring(xml.encode("utf-8"), _STR_PARSER)
+    rec = root[0] if root.tag == "dblp" else root
+    for field in rec:
+        if len(field):
+            text = _text(field)
+            del field[:]
+            field.text = text
+    return xmltodict.parse(etree.tostring(rec, encoding="unicode"))[rec.tag], rec.tag
+
+
 def iter_records(xml_gz: Path):
     """Yield one dict per publication in a dump, with flat memory use.
 
@@ -419,8 +442,7 @@ def get(key: str):
     """(info, dblp_type) for a record, as main.get() builds it from
     /rec/{key}.xml; None if the local copy does not have it."""
     row = _connect().execute(
-        "SELECT type, raw FROM pubs WHERE key = ?", [key]).fetchone()
+        "SELECT raw FROM pubs WHERE key = ?", [key]).fetchone()
     if row is None:
         return None
-    dblp_type, raw = row
-    return xmltodict.parse(raw)[dblp_type], dblp_type
+    return parse_record(row[0])
