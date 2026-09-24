@@ -16,6 +16,11 @@ _BROWSER_UA = (
     "Chrome/127.0.0.0 Safari/537.36"
 )
 
+# (connect, read) seconds. Without these, a tarpitted or half-open DBLP
+# connection blocks the process forever: Alfred then shows no result and no
+# notification, and the wedged `uv run` process lingers for days.
+_TIMEOUT = (5, 10)
+
 _session: requests.Session | None = None
 
 
@@ -96,7 +101,7 @@ def _solve_metarefresh(
     wait = difficulty + 1
     print(f"Anubis: metarefresh challenge, waiting {wait}s…", file=stderr)
     time.sleep(wait)
-    r = sess.get(refresh_url)
+    r = sess.get(refresh_url, timeout=_TIMEOUT)
     return not _is_challenge(r)
 
 
@@ -139,7 +144,7 @@ def _solve_pow(sess, pass_url, random_data, challenge_id, redir, difficulty) -> 
         "nonce": nonce,
         "redir": redir,
         "elapsedTime": elapsed,
-    })
+    }, timeout=_TIMEOUT)
     return not _is_challenge(r)
 
 
@@ -147,7 +152,7 @@ def get(url: str, params=None) -> requests.Response:
     """Drop-in for requests.get that transparently solves Anubis challenges."""
     sess = session()
     for attempt in range(3):
-        resp = sess.get(url, params=params)
+        resp = sess.get(url, params=params, timeout=_TIMEOUT)
         if not _is_challenge(resp):
             return resp
         print(f"Anubis: challenge detected (attempt {attempt + 1}/3)", file=stderr)
