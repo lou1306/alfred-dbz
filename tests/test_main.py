@@ -106,6 +106,30 @@ def test_add_to_zotero_offline_resolves_crossref(mini_db, offline, monkeypatch, 
         ("editor", "Van Deusen"), ("editor", "Galil"), ("editor", "Reid")]
 
 
+def test_add_to_zotero_keeps_markup_text_in_title(mini_db, offline, monkeypatch):
+    # xmltodict alone turns this <title> into {'i': ..., '#text': '... der  und ...'}.
+    monkeypatch.setattr(main.zotero, "Zotero", FakeZotero)
+    FakeZotero.created.clear()
+    main.add_to_zotero_fn("journals/test/Godel31", True)
+    [item] = FakeZotero.created
+    assert item["title"] == ("Über formal unentscheidbare Sätze der Principia "
+                             "Mathematica und verwandter Systeme I")
+
+
+def test_get_online_keeps_markup_text_in_title(no_db, monkeypatch):
+    class Resp:
+        status_code = 200
+        # As /rec/{key}.xml serves it: an encoding declaration and numeric
+        # character references.
+        text = ('<?xml version="1.0" encoding="US-ASCII"?>\n<dblp>\n'
+                '<article key="journals/test/Chemist20"><author>Ann Chemist</author>'
+                '<title>On H<sub>2</sub>O and <i>Lin&#233;arit&#233;</i>.</title>'
+                '</article>\n</dblp>\n')
+    monkeypatch.setattr(main, "fetch", lambda path, params=None: (Resp(), main.DBLP))
+    info, dblp_type = main.get("journals/test/Chemist20")
+    assert (dblp_type, info["title"]) == ("article", "On H2O and Linéarité.")
+
+
 def test_get_falls_back_to_dblp_for_unknown_keys(mini_db, monkeypatch):
     class Resp:
         status_code = 200
