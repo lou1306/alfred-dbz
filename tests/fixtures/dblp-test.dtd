@@ -1,0 +1,5 @@
+<!-- Entity subset of the real dblp DTD, enough for mini.xml. -->
+<!ENTITY auml   "&#228;" >
+<!ENTITY ouml   "&#246;" >
+<!ENTITY uuml   "&#252;" >
+<!ENTITY Uuml   "&#220;" >

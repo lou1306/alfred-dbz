@@ -4,3 +4,4 @@ icon.png
 info.plist
 .env
 __pycache__/
+*.duckdb*

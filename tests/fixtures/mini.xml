@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE dblp SYSTEM "dblp-test.dtd">
+<dblp>
+<inproceedings mdate="2026-02-19" key="conf/popl/LichtensteinP85">
+<author>Orna Lichtenstein</author>
+<author>Amir Pnueli</author>
+<title>Checking That Finite State Concurrent Programs Satisfy Their Linear Specification.</title>
+<pages>97-107</pages>
+<year>1985</year>
+<crossref>conf/popl/1985</crossref>
+<booktitle>POPL</booktitle>
+<url>db/conf/popl/popl85.html#LichtensteinP85</url>
+<ee type="oa">https://doi.org/10.1145/318593.318622</ee>
+</inproceedings><proceedings mdate="2026-02-19" key="conf/popl/1985">
+<editor>Mary S. Van Deusen</editor>
+<editor>Zvi Galil</editor>
+<editor>Brian K. Reid</editor>
+<title>Conference Record of the Twelfth Annual ACM Symposium on Principles of Programming Languages, New Orleans, Louisiana, USA, January 1985</title>
+<booktitle>POPL</booktitle>
+<publisher>ACM Press</publisher>
+<year>1985</year>
+<isbn>0-89791-147-4</isbn>
+<url>db/conf/popl/popl85.html</url>
+<ee>http://dl.acm.org/citation.cfm?id=318593</ee>
+</proceedings>
+<www mdate="2020-01-01" key="homepages/p/AmirPnueli">
+<author>Amir Pnueli</author>
+<title>Home Page</title>
+</www>
+<article mdate="2020-01-01" key="journals/test/Godel31">
+<author>Kurt G&ouml;del</author>
+<title>&Uuml;ber formal unentscheidbare S&auml;tze der <i>Principia Mathematica</i> und verwandter Systeme I.</title>
+<journal>Monatshefte f&uuml;r Mathematik</journal>
+<year>1931</year>
+</article>
+<article mdate="2020-01-01" key="journals/toplas/Lamport94">
+<author>Leslie Lamport</author>
+<title>The Temporal Logic of Actions.</title>
+<journal>ACM Trans. Program. Lang. Syst.</journal>
+<year>1994</year>
+</article>
+<article mdate="2020-01-01" key="journals/test/Chemist20">
+<author>Ann Chemist</author>
+<title>On H<sub>2</sub>O and Linearizability.</title>
+<journal>J. Test</journal>
+<year>2020</year>
+</article>
+</dblp>
