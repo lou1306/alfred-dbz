@@ -18,6 +18,31 @@ and this workflow will search DBLP for papers that match the given query (by tit
 
 * Alt + Return: Copy DBLP URL of selected paper to clipboard
 
+### Offline search
+
+Searches and Zotero imports use a local copy of DBLP when one is installed, and
+only go online for what it cannot answer. To download the latest monthly DBLP
+dump and build the local copy, run:
+
+    uv run main.py update-db
+
+and re-run it whenever you want a newer copy; `--release YYYY-MM-DD` picks a
+specific release. A build takes about 6 minutes, uses up to half of your RAM,
+and needs about 25 GB of free disk space while it runs; afterwards the download
+and temporary files are deleted, and the local copy takes about 5.5 GB. The dump is published monthly by
+[Schloss Dagstuhl](https://drops.dagstuhl.de/entities/collection/10.4230/dblp.xml)
+under CC0. With a local copy installed:
+
+* Results come from the local copy, followed by a *Search DBLP online* item.
+* Queries with no local results are sent to DBLP automatically.
+* End a query with `!` (e.g. `dbz model checking!`) to search DBLP online
+  directly, for papers newer than your copy.
+
+The copy lives in Alfred's workflow data folder
+(`~/Library/Application Support/Alfred/Workflow Data/com.github.lou1306.alfred-dbz/`),
+not in the workflow folder, so it is not synced with your Alfred preferences.
+Set `DBZ_DATA_DIR` to put it elsewhere.
+
 ## Installing
 
 This workflow requires Python 3.7 or higher, with the following libraries: `click`, `PyZotero`, `requests`, `xmltodict` (see `requirements.txt`). You also need a Zotero account with an [API key](https://www.zotero.org/support/dev/web_api/v3/basics).

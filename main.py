@@ -13,6 +13,7 @@ import xmltodict
 import click
 
 import anubis
+import localdb
 
 DBLP_URLS = [
     "https://dblp.org",
@@ -73,6 +74,13 @@ def extract_text(node, join=True):
 
 
 def get(key):
+    try:
+        if localdb.available():
+            found = localdb.get(key)
+            if found is not None:
+                return found
+    except Exception as exc:
+        print(f"Local lookup of {key} failed, trying DBLP: {exc}", file=stderr)
     print(f"Getting {key} from DBLP...", file=stderr)
     response, dblp_url = fetch(f"/rec/{key}.xml")
     if dblp_url is None:
@@ -97,6 +105,17 @@ def query_dblp(qry_string):
     last = first + int(hits["@sent"]) - 1
     url = response.url
     return [x["info"] for x in hits.get("hit", [])], total, first, last, url, dblp_url
+
+
+def search_local(qry_string):
+    """Hits from the local DBLP copy; [] when it is missing or fails, so the
+    caller falls back to the DBLP API."""
+    try:
+        if localdb.available():
+            return localdb.search(qry_string)
+    except Exception as exc:
+        print(f"Local search failed, trying DBLP: {exc}", file=stderr)
+    return []
 
 
 def make_creator(name, creator_type='author'):
@@ -150,6 +169,26 @@ def alfred_lookup(qry_string):
             "icon": {"path": "dblp-logo.png"},
         }
 
+    # A trailing "!" skips the local copy, e.g. for papers newer than the dump.
+    online = qry_string.rstrip().endswith("!")
+    if online:
+        qry_string = qry_string.rstrip()[:-1]
+    else:
+        hits = search_local(qry_string)
+        if hits:
+            query = qry_string.strip()
+            items = [fmt(hit) for hit in hits]
+            items.append({
+                "title": f"Search DBLP online for “{query}”",
+                "subtitle": f"Results above are from the local copy ({localdb.release()})",
+                "valid": False,
+                "autocomplete": f"{query}!",
+                "icon": {"path": "dblp-logo.png"},
+            })
+            print(json.dumps({"items": items}))
+            return
+
+    # Only the network path needs debouncing: local searches are cheap.
     if not _debounce(qry_string):
         print(json.dumps({"items": []}))
         return
@@ -176,6 +215,23 @@ def add_to_zotero(key, silent):
     except Exception as exc:
         print(f"Failed to add {key} to Zotero: {type(exc).__name__}: {exc}")
         exit(1)
+
+
+@group.command()
+@click.option("--release", default=None,
+              help="DBLP release date (YYYY-MM-DD). Default: the newest.")
+@click.option("--keep-download", default=False, is_flag=True,
+              help="Keep the downloaded XML dump after building.")
+def update_db(release, keep_download):
+    """Download a DBLP XML dump and rebuild the local copy from it."""
+    try:
+        info = localdb.build(release, keep_download)
+    except Exception as exc:
+        print(f"DBLP update failed: {type(exc).__name__}: {exc}")
+        exit(1)
+    print(
+        f"DBLP {info['release']}: {info['records']:,} records, "
+        f"{info['bytes'] / 1e9:.1f} GB, built in {info['seconds'] / 60:.0f} min")
 
 
 def add_to_zotero_fn(key, silent):
