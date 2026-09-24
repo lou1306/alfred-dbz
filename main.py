@@ -254,6 +254,7 @@ def add_to_zotero_fn(key, silent):
     template = zot.item_template(zot_type)
 
     mapping = {
+        "citationKey": "@key",
         "date": "year",
         "DOI": "ee",
         "extra": "@key",
@@ -269,6 +270,10 @@ def add_to_zotero_fn(key, silent):
     }
 
     post_process = {
+        # Zotero's native field: Better BibTeX keeps a key found here instead
+        # of generating its own. Before Zotero 8, it read the key from a
+        # "Citation Key:" line in Extra instead, so write both.
+        "citationKey": lambda x: f"DBLP:{x}",
         "DOI": lambda x: x[16:] if "https://doi.org/" in x else "",
         "extra": lambda x: f"Citation Key: DBLP:{x}",
         "title": lambda x: x.rstrip("."),

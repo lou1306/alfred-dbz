@@ -16,7 +16,7 @@ class FakeZotero:
         return {"itemType": item_type, "title": "", "creators": [],
                 "proceedingsTitle": "", "publisher": "", "date": "",
                 "pages": "", "series": "", "volume": "", "DOI": "",
-                "ISBN": "", "url": "", "extra": ""}
+                "ISBN": "", "citationKey": "", "url": "", "extra": ""}
 
     def create_items(self, items):
         FakeZotero.created.extend(items)
@@ -97,6 +97,8 @@ def test_add_to_zotero_offline_resolves_crossref(mini_db, offline, monkeypatch, 
     [item] = FakeZotero.created
     assert item["title"] == ("Checking That Finite State Concurrent Programs "
                              "Satisfy Their Linear Specification")
+    assert item["citationKey"] == "DBLP:conf/popl/LichtensteinP85"
+    assert item["extra"] == "Citation Key: DBLP:conf/popl/LichtensteinP85"
     assert item["DOI"] == "10.1145/318593.318622"
     assert item["pages"] == "97-107"
     assert item["publisher"] == "ACM Press"
