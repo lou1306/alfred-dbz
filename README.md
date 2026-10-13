@@ -45,9 +45,9 @@ Set `DBZ_DATA_DIR` to put it elsewhere.
 
 ## Installing
 
-This workflow requires Python 3.7 or higher, with the following libraries: `click`, `PyZotero`, `requests`, `xmltodict` (see `requirements.txt`). You also need a Zotero account with an [API key](https://www.zotero.org/support/dev/web_api/v3/basics).
+This workflow requires Python 3.10 or higher, with the following libraries: `click`, `PyZotero`, `requests`, `xmltodict` (see `requirements.txt`). You also need a Zotero account with an [API key](https://www.zotero.org/support/dev/web_api/v3/basics).
 
-1. Install Python 3.7 or higher
+1. Install Python 3.10 or higher
 2. Install the workflow
 3. Right-click on workflow, then "Open in Terminal"
 4. In Terminal: `pip3 install -r requirements.txt`
