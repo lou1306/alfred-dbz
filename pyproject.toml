@@ -11,7 +11,7 @@ dependencies = [
     "lxml>=6.1.3",
     "python-dotenv>=1.2.2",
     "pyzotero~=1.4.4",
-    "requests~=2.32.4",
+    "requests>=2.32.4,<2.34.0",
     "urllib3>=2.5.0",
     "xmltodict~=0.12.0",
 ]
